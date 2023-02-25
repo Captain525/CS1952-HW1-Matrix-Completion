@@ -1,8 +1,7 @@
 import numpy as np
 from HW1helper import *
 #from HW1helper import importDataFromFile
-
-
+#fixed it
 """
 Want to train on completing the matrix, ie M = XY^T. 
 Loss function is sum of squared error but only on the examples we have in training data. 
