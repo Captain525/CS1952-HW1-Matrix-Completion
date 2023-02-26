@@ -1,7 +1,7 @@
-import numpy as np
+import numpy as np 
+import cupy as cp
 from HW1helper import *
 #from HW1helper import importDataFromFile
-#fixed it
 """
 Want to train on completing the matrix, ie M = XY^T. 
 Loss function is sum of squared error but only on the examples we have in training data. 
@@ -16,10 +16,11 @@ def runProgram():
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     r = chooseR(n, m, Mtrain, Btrain)
     X,Y = initialize(n,m, r)
-    numEpochs = 700
-    learningRate = .0001
-    Xfinal, Yfinal = stochasticGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs)
-    
+    numEpochs = 500
+    learningRate = .00004
+    batchSize = 10
+    #Xfinal, Yfinal = stochasticGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs)
+    Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
     testLoss = loss(Mtest, Btest, Xfinal, Yfinal)
     print("test loss is: ", testLoss)
     predictions = predict(Xfinal, Yfinal, predictMatrix)
@@ -64,19 +65,84 @@ def stochasticGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, 
     for i in range(0, numEpochs):
         perm = np.arange(0, s)
         np.random.shuffle(perm)
+        startLoop = time.time()
+        sumTime = 0
         for j in range(0, s):
             index = perm[j]
             #in cases where the random index is bigger than one of the arrays, it just does only the other one. 
             if(index<n):
                 #x gradient for a given row (calculated same as the overall gradient)
+                startGrad = time.time()
                 xGrad = calculateGradientRow(X0, Y0, Mtrain, Btrain, index,True)
+                #xGrad = calculateGradient(X0, Y0, Mtrain, Btrain, True)[index, :]
+                
+                #print("time grad: ", timeGrad)
+                
                 X1[index,:] = X0[index,:] - learningRate*xGrad
                 X0 = X1
             if(index<m):
                 yGrad = calculateGradientRow(X1, Y0, Mtrain, Btrain, index, False)
+                #yGrad = calculateGradient(X1, Y0, Mtrain, Btrain, True)[index, :]
+                
                 Y1[index, :] = Y0[index,:] - learningRate*yGrad
                 Y0 = Y1
+            endGrad = time.time()
+            timeGrad = endGrad - startGrad
+            sumTime+=timeGrad
+        avgTime = sumTime/s
+        print("avg time: ", avgTime)
             #IMPLEMENT SOME WAY OF CONTINUOUS LOSS PRINTING HERE, throughout a given epoch. 
+        endLoop = time.time()
+        timeLoop = endLoop-startLoop
+        print("loop time: ", timeLoop)
+        trainLoss = loss(Mtrain, Btrain, X1, Y1)
+        testLoss = loss(Mtest, Btest, X1, Y1)
+        print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
+    return X1, Y1
+def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs, batchSize):
+    """
+    Calculates a gradient on batchSize adjacent rows in X or Y. This is much faster than the row based one, but 
+    potentially the gradients are less exact. 
+    """
+    X0 = X
+    Y0 = Y
+    n = X.shape[0]
+    m = Y.shape[0]
+    s = max(m, n)
+    #difference in size between the two
+    
+    X1 = X0
+    Y1 = Y0
+    #assuming int rounds down. 
+    xBatches = int(n/batchSize) + 1
+    yBatches = int(m/batchSize)+ 1
+    #one group has leftovers, other has leftovers+d. know leftovers<bs. 
+    for i in range(0, numEpochs):
+        biggestBatchSize = max(xBatches, yBatches)
+        perm = np.arange(0, biggestBatchSize)
+        np.random.shuffle(perm)
+        startLoop = time.time()
+        for b in perm:
+            MbatchX = Mtrain[batchSize*b:batchSize*(b+1),:]
+            BbatchX = Btrain[batchSize*b:batchSize*(b+1), :]
+            MbatchY = Mtrain[:, batchSize*b:batchSize*(b+1)]
+            BbatchY = Btrain[:, batchSize*b:batchSize*(b+1)]
+
+            if(b<xBatches):
+                Xbatch = X0[batchSize*b:batchSize*(b+1),:]
+                
+                xGrad = calculateGradient(Xbatch, Y, MbatchX, BbatchX, True)
+                X1[batchSize*b:batchSize*(b+1), :] = Xbatch - learningRate*xGrad
+                X0 = X1
+            if(b<yBatches):
+                Ybatch = Y0[batchSize*b:batchSize*(b+1), :]
+                yGrad = calculateGradient(X1, Ybatch, MbatchY, BbatchY, False)
+                Y1[batchSize*b:batchSize*(b+1), :] = Ybatch - learningRate*yGrad
+                Y0 = Y1
+        
+        endLoop = time.time()
+        timeLoop = endLoop-startLoop
+        print("loop time: ", timeLoop)
         trainLoss = loss(Mtrain, Btrain, X1, Y1)
         testLoss = loss(Mtest, Btest, X1, Y1)
         print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
@@ -93,13 +159,26 @@ def loss(M, B, X, Y):
 
     We can also customize M and B to only look at certain training examples, and this
     works for both testing and training data. 
+
+    cupy made this method faster, but made the gradient loop slower. 
+    It made this go at around .00x seconds, whereas with numpy .8 seconds. 
+
+    However, loop time doubled. 
+    So, just cast this method to cp, which makes it run faster. 
     """
-    numEntries = np.sum(B)
-    mat = M-(X@Y.T)*B
+    startLoss = time.time()
+    #cast to cp to make this operation faster. 
+    numEntries = cp.sum(cp.asarray(B))
+    mat = cp.asarray(M)-(cp.asarray(X)@cp.asarray(Y).T)*cp.asarray(B)
+    #mat = M-np.multiply((cp.matmul(X, cp.transpose(Y))), B)
     #squared frobenius norm. 
-    loss = np.trace(mat.T@mat)/numEntries
     #normal frobenius norm:
-    #loss = np.linalg.norm(mat)
+    #this method is WAY faster. However, need to square it somehow. 
+    #still faster with these extra things added. 
+    loss = cp.square(cp.linalg.norm(mat))/numEntries
+    endLoss = time.time()
+    
+    print("lsos time: ", endLoss-startLoss)
     return loss
 
 def checkLoss(M, B,X,Y, loss):
@@ -125,13 +204,16 @@ def calculateGradientRow(X,Y,M,B,row, isItX,check = False):
     if(isItX):
         
         term = M[row,:] - Y@X[row,:] * B[row, :]
+        #term = M[row, :] - cp.multiply(cp.matmul(Y, X[row, :]), B[row, :])
         assert(term.shape == (m,))
         #should be term@Y but with term as a row vector. 
-        return -2* Y.T@term
+        return -2*Y.T@term
     else:
         term = M[:, row] - (X@Y[row, :])*B[:, row]
+        #term = M[:, row] - (cp.multiply(cp.matmul(X, Y[row, :]), B[:, row]))
         assert(term.shape == (n,))
         return -2* X.T@term
+
 
 def calculateGradient(X,Y, M, B, isItX, check=False):
     """
@@ -158,7 +240,7 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     check is an optional parameter which calls checkGradient. 
     """
     
-    term = (M-X@Y.T*B)
+    term = (M-(X@Y.T)*B)
     if(isItX):
         grad = term@Y
         assert(grad.shape == X.shape)
@@ -182,7 +264,7 @@ def checkGradientCalculations():
     Ygrad = calculateGradient(X,Y,M,B,False,  True)
     return
 def chooseR(n,m, M,B):
-    r = 10
+    r = 6
     return r
 
 runProgram()

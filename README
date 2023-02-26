@@ -1,0 +1,11 @@
+ASSIGNMENT: Matrix Completion
+
+We're given a dataset in mat_comp (or mat_comp_small) of pairs of users, movies and ratings from .5 to 5 (jumping by .5). 
+We want to be able to predict what a user will rate a given movie on an example we haven't seen. 
+
+Essentially, we wish to find an nxm matrix M, where n is the number of users and m is the number of movies. We currently have
+a series of entries Mij of the matrix,specifically k entries. We wish to use those entries to predict the rest. 
+
+To do this, we assume that M = X@Y^T for some X size nxr, Y size mxr, where r is the rank of the matrix M(unknown). 
+We want to minimize the loss function 
+f(X,Y) = sum_{i,j in omega}(Mij - XY^Tij)^2. 

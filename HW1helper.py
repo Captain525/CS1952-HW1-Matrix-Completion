@@ -1,5 +1,6 @@
 import numpy as np
-
+import cupy as cp
+import time as time
 def getBooleanMatrixM(dataMatrix, n, m):
     """
     Goal: Get a boolean matrix of size nxm which represents which entries we have data of 
@@ -10,7 +11,7 @@ def getBooleanMatrixM(dataMatrix, n, m):
     Input data in the form of numTrainingExamples x 3, where first column is i(user i), second column is j(movie j) and third is the rating value for that spot.
     User starts at 1, movie starts at 1. 
     """
-    M = np.zeros(shape =(n, m))
+    M = np.zeros(shape = (n,m))
     indices = dataMatrix[:, 0:2].astype(np.int32)
     ratings = dataMatrix[:, 2]
     #use the indices pairs as input to M, and assign the corresponding rating to that point in the matrix. 
@@ -67,8 +68,11 @@ def readyData(n,m , ratingMatrix):
     trainRating = ratingMatrix[0:first]
     validationRating = ratingMatrix[first:second]
     testRating = ratingMatrix[second:]
-
+    booleanStart = time.time()
     Mtrain, Btrain = getBooleanMatrixM(trainRating, n, m)
+    booleanEnd = time.time()
+    booleanTime = booleanEnd-booleanStart
+    print("booleanTime: ", booleanTime)
     Mval, Bval = getBooleanMatrixM(validationRating, n, m)
     Mtest,Btest = getBooleanMatrixM(testRating, n, m)
     return [(Mtrain, Btrain), (Mval, Bval), (Mtest, Btest)]
