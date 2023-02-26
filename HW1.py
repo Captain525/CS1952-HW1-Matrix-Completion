@@ -1,6 +1,7 @@
 import numpy as np 
 import cupy as cp
 from HW1helper import *
+from scipy.linalg import svd
 #from HW1helper import importDataFromFile
 """
 Want to train on completing the matrix, ie M = XY^T. 
@@ -15,11 +16,10 @@ def runProgram():
     n,m, ratingMatrix, predictMatrix = importDataFromFile(file_name)
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     r = chooseR(n, m, Mtrain, Btrain)
-    X,Y = initialize(n,m, r)
+    X,Y = initialize(n,m, r, Mtrain)
     numEpochs = 500
     learningRate = .00004
     batchSize = 10
-    #Xfinal, Yfinal = stochasticGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs)
     Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
     testLoss = loss(Mtest, Btest, Xfinal, Yfinal)
     print("test loss is: ", testLoss)
@@ -104,13 +104,11 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
     Calculates a gradient on batchSize adjacent rows in X or Y. This is much faster than the row based one, but 
     potentially the gradients are less exact. 
     """
-    X0 = X
-    Y0 = Y
+
     n = X.shape[0]
     m = Y.shape[0]
-    s = max(m, n)
-    #difference in size between the two
-    
+    X0 = X
+    Y0 = Y
     X1 = X0
     Y1 = Y0
     #assuming int rounds down. 
@@ -132,11 +130,15 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
                 Xbatch = X0[batchSize*b:batchSize*(b+1),:]
                 
                 xGrad = calculateGradient(Xbatch, Y, MbatchX, BbatchX, True)
+                regTerm = fiveReg(Xbatch, Y, True)
+                xGrad = xGrad + regTerm
                 X1[batchSize*b:batchSize*(b+1), :] = Xbatch - learningRate*xGrad
                 X0 = X1
             if(b<yBatches):
                 Ybatch = Y0[batchSize*b:batchSize*(b+1), :]
                 yGrad = calculateGradient(X1, Ybatch, MbatchY, BbatchY, False)
+                regTerm = fiveReg(X,Ybatch, False)
+                yGrad = yGrad + regTerm
                 Y1[batchSize*b:batchSize*(b+1), :] = Ybatch - learningRate*yGrad
                 Y0 = Y1
         
@@ -238,6 +240,8 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     If checkGradient is right, then this method is right. 
 
     check is an optional parameter which calls checkGradient. 
+
+    adding regularization. 
     """
     
     term = (M-(X@Y.T)*B)
@@ -250,6 +254,25 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     if(check):
         assert(checkGradient(X,Y,M,B, isItX, grad))
     return -2*grad
+def fiveReg(X,Y, isItX):
+    """
+    Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
+    """
+    l = .1
+    M = X@Y.T
+    I = M>5
+    J = M<0
+
+    fiveTerm = (M-5*np.ones(shape = M.shape))*I
+    assert(np.all(fiveTerm>=0))
+    zeroTerm = M*J
+    assert(np.all(zeroTerm<=0))
+    if(isItX):
+        term = (fiveTerm + zeroTerm)@Y
+    else:
+        term = (fiveTerm + zeroTerm).T @X
+    return 2*l*term
+
 def checkGradientCalculations():
     """
     Checks if the calculations  for the gradient are working, not apart of the 

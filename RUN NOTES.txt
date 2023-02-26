@@ -47,15 +47,15 @@ Changed to batch grad descent with bs 10.
 Got to the requirement by epoch 60. 80 Epochs total. 
 Final train loss of .7337, val loss: .7479, test loss: .74812
 
-Did with 100 epochs: .0005,  bs=10, r=4 batchGrad
+Did with 100 epochs: .00005,  bs=10, r=4 batchGrad
 Actually went down to as low as train: .7195 val: .7355. However, went slightly up at the end, 
 final train: .7265, val: .7419, test: .7432
 FIX: Make learning rate decay. 
 
-Tried again with BS = 30, lr = .0004. 
+Tried again with BS = 30, lr = .00004. 
 Got trian: .737 val:.752, test:.753. Didn't run long enough. 
 
-Trying with bs = 10, lr =.0004, epochs = 200, r = 6. 
+Trying with bs = 10, lr =.00004, epochs = 200, r = 6. 
 Train: .697, val : .716, test:.71778. didn't dip at all. 
 
 Same: r = 8
@@ -66,3 +66,12 @@ r = 8, epochs 300:
 train: .68, val: .712, test: .7119
 
 I think 8 is too high for r, because 6 was pretty much just as effective. 
+
+
+r = 6, epochs = 500, lr = .00004, bs =10:
+train: .642, val: .6645, test: .664. 
+
+r = 6 epochs 500 lr = .00004 bs = 10, added regularizer punishing above 5 or below 0, with parameter .1. 
+Around epoch 100, have train .71 test .72. Epoch 172 got .7. 
+
+Final: trainLoss: .615, val Loss = .630, testLoss = .631

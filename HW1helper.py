@@ -1,6 +1,7 @@
 import numpy as np
 import cupy as cp
 import time as time
+from numpy.linalg import svd
 def getBooleanMatrixM(dataMatrix, n, m):
     """
     Goal: Get a boolean matrix of size nxm which represents which entries we have data of 
@@ -76,13 +77,32 @@ def readyData(n,m , ratingMatrix):
     Mval, Bval = getBooleanMatrixM(validationRating, n, m)
     Mtest,Btest = getBooleanMatrixM(testRating, n, m)
     return [(Mtrain, Btrain), (Mval, Bval), (Mtest, Btest)]
-def initialize(n, m, r):
+def initialize(n, m, r, Mtrain):
     """
     Initialize the matrices we wish to learn. 
     Could do this in many different ways, this could also help with learning. 
     """
     X = np.random.standard_normal((n,r))
     Y = np.random.standard_normal((m,r))
+    """
+    assert(Mtrain.shape == (n,m))
+    startSVD = time.time()
+    U, s, Vt = svd(Mtrain)
+    endSVD = time.time()
+    print("SVD TIME: ", endSVD - startSVD)
+    X = U[:, 0:r]
+    print(X.shape)
+    assert(X.shape == (n,r))
+    sp = np.diag(s[0:r])
+    print(sp.shape)
+    X = X@sp
+
+    Y = np.transpose(Vt[0:r, :])
+    print(Y.shape)
+    X = U@s
+    """
+    assert(X.shape == (n, r))
+    assert(Y.shape == (m, r))
     return X,Y
 
 def checkGradient(X,Y,M,B, isItX,grad):
