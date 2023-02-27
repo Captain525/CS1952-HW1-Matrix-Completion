@@ -19,86 +19,15 @@ def runProgram():
     X,Y = initialize(n,m, r, Mtrain)
     numEpochs = 500
     learningRate = .00004
-    batchSize = 10
+    batchSize = 50
     Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
     testLoss = loss(Mtest, Btest, Xfinal, Yfinal)
     print("test loss is: ", testLoss)
     predictions = predict(Xfinal, Yfinal, predictMatrix)
     print(predictions)
     return
-def gradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs):
-    """
-    perform GRADIENT Descent using alternating minimization on X and Y. 
-    note that this calculates the gradient of the ENTIRE matrix X, using ALL the training 
-    data given to us(ie the stuff in M). This is NOT stochastic gradient descent. 
-    Will do that in a separate method. Thus, each eopoch is just one training step here. As you iterate 
-    through the entire dataset each gradient update. 
-    """
-    X0 = X
-    Y0= Y
-    #could implement k fold cross validation here too with rows potentially
-    for i in range(0, numEpochs):
-        #note: could potentially alter the inputted M here to make it more robust instead. 
-        X1 = X0 - learningRate*calculateGradient(X0, Y0,Mtrain,Btrain,True)
-        Y1 = Y0 - learningRate*calculateGradient(X1, Y0, Mtrain, Btrain, False)
-        #want these to be copies, not a reference to the original? 
-      
-        trainLoss = loss(Mtrain, Btrain, X1, Y1)
-        testLoss = loss(Mtest, Btest, X1,Y1)
-        print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
-        Y0 = Y1
-        X0 = X1
-    return X1, Y1
 
-def stochasticGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs):
-    """
-    Another version of the gradient descent method, but this one instead of updating the entire matrix all at once, does it row by row, 
-    randomized. Thus the batches are the number of examples in each row of the matrix. 
-    """
-    X0 = X
-    Y0 = Y
-    n = X.shape[0]
-    m = Y.shape[0]
-    s = max(m, n)
-    X1 = X0
-    Y1 = Y0
-    for i in range(0, numEpochs):
-        perm = np.arange(0, s)
-        np.random.shuffle(perm)
-        startLoop = time.time()
-        sumTime = 0
-        for j in range(0, s):
-            index = perm[j]
-            #in cases where the random index is bigger than one of the arrays, it just does only the other one. 
-            if(index<n):
-                #x gradient for a given row (calculated same as the overall gradient)
-                startGrad = time.time()
-                xGrad = calculateGradientRow(X0, Y0, Mtrain, Btrain, index,True)
-                #xGrad = calculateGradient(X0, Y0, Mtrain, Btrain, True)[index, :]
-                
-                #print("time grad: ", timeGrad)
-                
-                X1[index,:] = X0[index,:] - learningRate*xGrad
-                X0 = X1
-            if(index<m):
-                yGrad = calculateGradientRow(X1, Y0, Mtrain, Btrain, index, False)
-                #yGrad = calculateGradient(X1, Y0, Mtrain, Btrain, True)[index, :]
-                
-                Y1[index, :] = Y0[index,:] - learningRate*yGrad
-                Y0 = Y1
-            endGrad = time.time()
-            timeGrad = endGrad - startGrad
-            sumTime+=timeGrad
-        avgTime = sumTime/s
-        print("avg time: ", avgTime)
-            #IMPLEMENT SOME WAY OF CONTINUOUS LOSS PRINTING HERE, throughout a given epoch. 
-        endLoop = time.time()
-        timeLoop = endLoop-startLoop
-        print("loop time: ", timeLoop)
-        trainLoss = loss(Mtrain, Btrain, X1, Y1)
-        testLoss = loss(Mtest, Btest, X1, Y1)
-        print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
-    return X1, Y1
+
 def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs, batchSize):
     """
     Calculates a gradient on batchSize adjacent rows in X or Y. This is much faster than the row based one, but 
@@ -120,6 +49,7 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
         perm = np.arange(0, biggestBatchSize)
         np.random.shuffle(perm)
         startLoop = time.time()
+       
         for b in perm:
             MbatchX = Mtrain[batchSize*b:batchSize*(b+1),:]
             BbatchX = Btrain[batchSize*b:batchSize*(b+1), :]
@@ -130,18 +60,17 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
                 Xbatch = X0[batchSize*b:batchSize*(b+1),:]
                 
                 xGrad = calculateGradient(Xbatch, Y, MbatchX, BbatchX, True)
-                regTerm = fiveReg(Xbatch, Y, True)
-                xGrad = xGrad + regTerm
+                #regTerm = fiveReg(Xbatch, Y, True)
+                #xGrad = xGrad + regTerm
                 X1[batchSize*b:batchSize*(b+1), :] = Xbatch - learningRate*xGrad
                 X0 = X1
             if(b<yBatches):
                 Ybatch = Y0[batchSize*b:batchSize*(b+1), :]
                 yGrad = calculateGradient(X1, Ybatch, MbatchY, BbatchY, False)
-                regTerm = fiveReg(X,Ybatch, False)
-                yGrad = yGrad + regTerm
+                #regTerm = fiveReg(X,Ybatch, False)
+                #yGrad = yGrad + regTerm
                 Y1[batchSize*b:batchSize*(b+1), :] = Ybatch - learningRate*yGrad
                 Y0 = Y1
-        
         endLoop = time.time()
         timeLoop = endLoop-startLoop
         print("loop time: ", timeLoop)
@@ -242,9 +171,18 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     check is an optional parameter which calls checkGradient. 
 
     adding regularization. 
+    MADE REGULARIZATION FASTER BY ADDING IT TO THIS METHOD. 
     """
-    
-    term = (M-(X@Y.T)*B)
+    X = cp.array(X)
+    Y = cp.array(Y)
+    M = cp.array(M)
+    B = cp.array(B)
+    val = X@Y.T
+    l = 1
+    I = (val>5).astype(int)
+    J = (val<.5).astype(int)
+    valTerm = val*(I+J)-(5*I + .5*J)
+    term = (M-(val)*B) -l*valTerm
     if(isItX):
         grad = term@Y
         assert(grad.shape == X.shape)
@@ -253,26 +191,42 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
         assert(grad.shape == Y.shape)
     if(check):
         assert(checkGradient(X,Y,M,B, isItX, grad))
-    return -2*grad
+    return -2*grad.get()
 def fiveReg(X,Y, isItX):
     """
     Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
     """
+    #Xc = cp.array(X)
+    #Yc = cp.array(Y)
+    X = cp.array(X)
+    Y = cp.array(Y)
     l = 1
     M = X@Y.T
-    I = M>5
-    J = M<0
-
-    fiveTerm = (M-5*np.ones(shape = M.shape))*I
-    assert(np.all(fiveTerm>=0))
-    zeroTerm = M*J
-    assert(np.all(zeroTerm<=0))
+    timeBool = time.time()
+    I = (M>5).astype(int)
+    #changed from 0 to .5
+    J = (M<.5).astype(int)
+    timeDone = time.time()
+    timeBoolTotal = timeDone - timeBool
+    #print("bool time: ", timeBoolTotal)
+    timeMiddle = time.time()
+    #o = cp.ones(shape = M.shape)
+    #fiveTerm = (M-5*o)*I
+    #assert(cp.all(fiveTerm>=0))
+    #zeroTerm = (M-.5*o)*J
+    valTerm = M*(I+J)-(5*I + .5*J)
+    #assert(cp.all(zeroTerm<=0))
+    timeMiddleEnd = time.time()
+    #print("time middle: ", timeMiddleEnd - timeMiddle)
+    timeStart = time.time()
+    
     if(isItX):
-        term = (fiveTerm + zeroTerm)@Y
+        term = (valTerm)@Y
     else:
-        term = (fiveTerm + zeroTerm).T @X
-    return 2*l*term
-
+        term = (valTerm).T @X
+    timeEnd = time.time()
+    #print("time final: ", timeEnd - timeStart)
+    return 2*l*term.get()
 def checkGradientCalculations():
     """
     Checks if the calculations  for the gradient are working, not apart of the 
@@ -290,4 +244,76 @@ def chooseR(n,m, M,B):
     r = 6
     return r
 
+def stochasticGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs):
+    """
+    Another version of the gradient descent method, but this one instead of updating the entire matrix all at once, does it row by row, 
+    randomized. Thus the batches are the number of examples in each row of the matrix. 
+    """
+    X0 = X
+    Y0 = Y
+    n = X.shape[0]
+    m = Y.shape[0]
+    s = max(m, n)
+    X1 = X0
+    Y1 = Y0
+    for i in range(0, numEpochs):
+        perm = np.arange(0, s)
+        np.random.shuffle(perm)
+        startLoop = time.time()
+        sumTime = 0
+        for j in range(0, s):
+            index = perm[j]
+            #in cases where the random index is bigger than one of the arrays, it just does only the other one. 
+            if(index<n):
+                #x gradient for a given row (calculated same as the overall gradient)
+                startGrad = time.time()
+                xGrad = calculateGradientRow(X0, Y0, Mtrain, Btrain, index,True)
+                #xGrad = calculateGradient(X0, Y0, Mtrain, Btrain, True)[index, :]
+                
+                #print("time grad: ", timeGrad)
+                
+                X1[index,:] = X0[index,:] - learningRate*xGrad
+                X0 = X1
+            if(index<m):
+                yGrad = calculateGradientRow(X1, Y0, Mtrain, Btrain, index, False)
+                #yGrad = calculateGradient(X1, Y0, Mtrain, Btrain, True)[index, :]
+                
+                Y1[index, :] = Y0[index,:] - learningRate*yGrad
+                Y0 = Y1
+            endGrad = time.time()
+            timeGrad = endGrad - startGrad
+            sumTime+=timeGrad
+        avgTime = sumTime/s
+        print("avg time: ", avgTime)
+            #IMPLEMENT SOME WAY OF CONTINUOUS LOSS PRINTING HERE, throughout a given epoch. 
+        endLoop = time.time()
+        timeLoop = endLoop-startLoop
+        print("loop time: ", timeLoop)
+        trainLoss = loss(Mtrain, Btrain, X1, Y1)
+        testLoss = loss(Mtest, Btest, X1, Y1)
+        print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
+    return X1, Y1
+def gradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs):
+    """
+    perform GRADIENT Descent using alternating minimization on X and Y. 
+    note that this calculates the gradient of the ENTIRE matrix X, using ALL the training 
+    data given to us(ie the stuff in M). This is NOT stochastic gradient descent. 
+    Will do that in a separate method. Thus, each eopoch is just one training step here. As you iterate 
+    through the entire dataset each gradient update. 
+    """
+    X0 = X
+    Y0= Y
+    #could implement k fold cross validation here too with rows potentially
+    for i in range(0, numEpochs):
+        #note: could potentially alter the inputted M here to make it more robust instead. 
+        X1 = X0 - learningRate*calculateGradient(X0, Y0,Mtrain,Btrain,True)
+        Y1 = Y0 - learningRate*calculateGradient(X1, Y0, Mtrain, Btrain, False)
+        #want these to be copies, not a reference to the original? 
+      
+        trainLoss = loss(Mtrain, Btrain, X1, Y1)
+        testLoss = loss(Mtest, Btest, X1,Y1)
+        print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
+        Y0 = Y1
+        X0 = X1
+    return X1, Y1
 runProgram()

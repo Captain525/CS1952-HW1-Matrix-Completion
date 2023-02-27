@@ -78,3 +78,19 @@ Final: trainLoss: .615, val Loss = .630, testLoss = .631
 
 param 1:
 train .59 val .606 test .607
+
+
+param 1: Changed to .5 on one bound: 
+Got past threshold by epoch 30. 
+
+MERGED REgularization with grad descent method, changed to cp, increased batch size to 100. 
+With batch size 10(no cp) was about 1 second faster per epoch. 
+With batch size 100, about same effectiveness but way faster. Not sure if bc of bs or bc of the other changes to cp. 
+Got below .70 val loss at epoch 91.
+Trainloss: .589, val Loss : .6065, test loss: .6043
+
+HIGHER BATCH SIZE ONLY FASTER BC CP. 
+w/ batch size 200, learning rate .00005, initially beetter, but fails to converge. 
+
+FOR r = 6 .00005 is TOO BIG. looks like need to icnrease learning rate when loss gets too low. WRONG. DONT INCREASE LR. 
+.000045 - TOO BIG
