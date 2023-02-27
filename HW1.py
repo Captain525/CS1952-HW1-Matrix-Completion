@@ -258,7 +258,7 @@ def fiveReg(X,Y, isItX):
     """
     Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
     """
-    l = .1
+    l = 1
     M = X@Y.T
     I = M>5
     J = M<0

@@ -75,3 +75,6 @@ r = 6 epochs 500 lr = .00004 bs = 10, added regularizer punishing above 5 or bel
 Around epoch 100, have train .71 test .72. Epoch 172 got .7. 
 
 Final: trainLoss: .615, val Loss = .630, testLoss = .631
+
+param 1:
+train .59 val .606 test .607
