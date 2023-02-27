@@ -17,14 +17,15 @@ def runProgram():
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     r = chooseR(n, m, Mtrain, Btrain)
     X,Y = initialize(n,m, r, Mtrain)
-    numEpochs = 500
+    numEpochs = 100
     learningRate = .00004
-    batchSize = 50
+    batchSize = 100
     Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
-    testLoss = loss(Mtest, Btest, Xfinal, Yfinal)
+    testLoss = loss(cp.array(Mtest), cp.array(Btest), Xfinal, Yfinal)
     print("test loss is: ", testLoss)
-    predictions = predict(Xfinal, Yfinal, predictMatrix)
+    predictions, predictionsRounded = predict(Xfinal, Yfinal, cp.array(predictMatrix))
     print(predictions)
+    print(predictionsRounded)
     return
 
 
@@ -33,13 +34,16 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
     Calculates a gradient on batchSize adjacent rows in X or Y. This is much faster than the row based one, but 
     potentially the gradients are less exact. 
     """
-
     n = X.shape[0]
     m = Y.shape[0]
-    X0 = X
-    Y0 = Y
+    X0 = cp.array(X)
+    Y0 = cp.array(Y)
     X1 = X0
     Y1 = Y0
+    Mtrain = cp.array(Mtrain)
+    Mtest = cp.array(Mtest)
+    Btrain = cp.array(Btrain)
+    Btest = cp.array(Btest)
     #assuming int rounds down. 
     xBatches = int(n/batchSize) + 1
     yBatches = int(m/batchSize)+ 1
@@ -59,7 +63,7 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
             if(b<xBatches):
                 Xbatch = X0[batchSize*b:batchSize*(b+1),:]
                 
-                xGrad = calculateGradient(Xbatch, Y, MbatchX, BbatchX, True)
+                xGrad = calculateGradient(Xbatch, Y0, MbatchX, BbatchX, True)
                 #regTerm = fiveReg(Xbatch, Y, True)
                 #xGrad = xGrad + regTerm
                 X1[batchSize*b:batchSize*(b+1), :] = Xbatch - learningRate*xGrad
@@ -78,72 +82,6 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
         testLoss = loss(Mtest, Btest, X1, Y1)
         print("Epoch {epoch} train loss: {tloss}, test loss: {vloss}".format(epoch=i, tloss = trainLoss, vloss = testLoss))
     return X1, Y1
-def loss(M, B, X, Y):
-    """
-    The base loss function is: 
-    f(X,Y) = sum_{i,j in omega}(Mij - (XY^T)ij)^2
-    We can rwerite this in matrix form however, using B. 
-    Note if i,j isn't in omega, by definition of M, Mij = 0. 
-    By definition of B, Bij = 0. So, if we plug in XY^T*B, then Mij - (XY^T*B) = 0
-    for those which shouldn't be counted which is what we want. 
-    Thus, f(X,Y) = ||M - XY^T*B||_F^2 - frobenius norm squared of M-XY^T*B
-
-    We can also customize M and B to only look at certain training examples, and this
-    works for both testing and training data. 
-
-    cupy made this method faster, but made the gradient loop slower. 
-    It made this go at around .00x seconds, whereas with numpy .8 seconds. 
-
-    However, loop time doubled. 
-    So, just cast this method to cp, which makes it run faster. 
-    """
-    startLoss = time.time()
-    #cast to cp to make this operation faster. 
-    numEntries = cp.sum(cp.asarray(B))
-    mat = cp.asarray(M)-(cp.asarray(X)@cp.asarray(Y).T)*cp.asarray(B)
-    #mat = M-np.multiply((cp.matmul(X, cp.transpose(Y))), B)
-    #squared frobenius norm. 
-    #normal frobenius norm:
-    #this method is WAY faster. However, need to square it somehow. 
-    #still faster with these extra things added. 
-    loss = cp.square(cp.linalg.norm(mat))/numEntries
-    endLoss = time.time()
-    
-    print("lsos time: ", endLoss-startLoss)
-    return loss
-
-def checkLoss(M, B,X,Y, loss):
-    """
-    A function which checks the loss function to make sure it's working properly. 
-    """
-def predict(X, Y, predictData):
-    """
-    Calculate predictions for the data. 
-    Predictions: q x 2, where first column is user second column is movie. Indexed starting at one. 
-    To predict, just pick the ERM, ie the value of XY^T at i,j
-    """
-    Mfinal = X@Y.T
-    predictions = Mfinal[predictData[:, 0]-1, predictData[:, 1]-1]
-    assert(checkPredictions(predictions, Mfinal, predictData))
-
-def calculateGradientRow(X,Y,M,B,row, isItX,check = False):
-    """
-    Like calculate gradient, but only does it for a specific row. This mixes better with stochastic grad descent method.
-    """
-    n = X.shape[0]
-    m = Y.shape[0]
-    if(isItX):
-        
-        term = M[row,:] - Y@X[row,:] * B[row, :]
-        #term = M[row, :] - cp.multiply(cp.matmul(Y, X[row, :]), B[row, :])
-        assert(term.shape == (m,))
-        #should be term@Y but with term as a row vector. 
-        return -2*Y.T@term
-    else:
-        term = M[:, row] - (X@Y[row, :])*B[:, row]
-        #term = M[:, row] - (cp.multiply(cp.matmul(X, Y[row, :]), B[:, row]))
-        assert(term.shape == (n,))
-        return -2* X.T@term
 
 
 def calculateGradient(X,Y, M, B, isItX, check=False):
@@ -173,16 +111,15 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     adding regularization. 
     MADE REGULARIZATION FASTER BY ADDING IT TO THIS METHOD. 
     """
-    X = cp.array(X)
-    Y = cp.array(Y)
-    M = cp.array(M)
-    B = cp.array(B)
+    doReg = True
     val = X@Y.T
     l = 1
-    I = (val>5).astype(int)
-    J = (val<.5).astype(int)
-    valTerm = val*(I+J)-(5*I + .5*J)
-    term = (M-(val)*B) -l*valTerm
+    term = (M-(val)*B)
+    if(doReg):
+        I = (val>5).astype(int)
+        J = (val<.5).astype(int)
+        valTerm = val*(I+J)-(5*I + .5*J)
+        term = term -l*valTerm
     if(isItX):
         grad = term@Y
         assert(grad.shape == X.shape)
@@ -191,15 +128,86 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
         assert(grad.shape == Y.shape)
     if(check):
         assert(checkGradient(X,Y,M,B, isItX, grad))
-    return -2*grad.get()
+    return -2*grad
+def loss(M, B, X, Y):
+    """
+    The base loss function is: 
+    f(X,Y) = sum_{i,j in omega}(Mij - (XY^T)ij)^2
+    We can rwerite this in matrix form however, using B. 
+    Note if i,j isn't in omega, by definition of M, Mij = 0. 
+    By definition of B, Bij = 0. So, if we plug in XY^T*B, then Mij - (XY^T*B) = 0
+    for those which shouldn't be counted which is what we want. 
+    Thus, f(X,Y) = ||M - XY^T*B||_F^2 - frobenius norm squared of M-XY^T*B
+
+    We can also customize M and B to only look at certain training examples, and this
+    works for both testing and training data. 
+
+    cupy made this method faster, but made the gradient loop slower. 
+    It made this go at around .00x seconds, whereas with numpy .8 seconds. 
+
+    However, loop time doubled. 
+    So, just cast this method to cp, which makes it run faster. 
+    """
+    startLoss = time.time()
+    #cast to cp to make this operation faster. 
+    numEntries = cp.sum(B)
+    mat = M-(X@Y.T)*B
+    #this method is WAY faster. However, need to square it somehow. 
+    #still faster with these extra things added. 
+    loss = cp.square(cp.linalg.norm(mat))/numEntries
+    endLoss = time.time()
+    
+    print("loss time: ", endLoss-startLoss)
+    return loss
+
+def predict(X, Y, predictData):
+    """
+    Calculate predictions for the data. 
+    Predictions: q x 2, where first column is user second column is movie. Indexed starting at one. 
+    To predict, just pick the ERM, ie the value of XY^T at i,j
+    """
+    Mfinal = X@Y.T
+    predictions = Mfinal[predictData[:, 0]-1, predictData[:, 1]-1]
+    predictionsRounded = roundPredictions(predictions)
+    #assert(checkPredictions(predictions, Mfinal, predictData))
+    return predictions, predictionsRounded
+def roundPredictions(predictions):
+    """
+    Find the closest multiple of .5 to the value, and make it that value. 
+
+    """
+    numPredictions = predictions.shape[0]
+    smallValue = .5
+    bigValue = 5
+    predTooSmall = predictions<smallValue
+    predTooBig = predictions>bigValue
+    print("num too small: ", cp.sum(predTooSmall)/numPredictions)
+    print("num too big: ", cp.sum(predTooBig)/numPredictions)
+
+    #logical and of two arrays should be 0 bc nothing in common. 
+    either = cp.logical_not(cp.logical_or(predTooBig, predTooSmall))
+    #multiply elements of predictions which are invalid by 0, then add small value or big values to those elements to get the new value. 
+    predictions = either*predictions + predTooSmall*smallValue + predTooBig*bigValue
+    val = predictions*2
+    floor = cp.floor(val)
+    ceiling = cp.ceil(val)
+    #know val>floor
+    distBelow = val-floor
+    #know ceiling > val
+    distAbove = ceiling - val
+    #boolean which is 1 if want to round down
+    roundDown = distBelow<=distAbove
+    combined = floor*roundDown + ceiling*(cp.logical_not(roundDown))
+    assert(cp.all(cp.abs(combined - val) <=distAbove))
+    assert(cp.all(cp.abs(combined - val) <=distBelow))
+    normal = combined/2
+    threshold = .01
+    assert(cp.all(normal>=.5) and cp.all(normal<=5) and cp.all((normal%.5)<threshold))
+    return normal
 def fiveReg(X,Y, isItX):
     """
     Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
     """
-    #Xc = cp.array(X)
-    #Yc = cp.array(Y)
-    X = cp.array(X)
-    Y = cp.array(Y)
     l = 1
     M = X@Y.T
     timeBool = time.time()
@@ -227,6 +235,15 @@ def fiveReg(X,Y, isItX):
     timeEnd = time.time()
     #print("time final: ", timeEnd - timeStart)
     return 2*l*term.get()
+
+def chooseR(n,m, M,B):
+    r = 6
+    return r
+#UNUSED METHODS
+def checkLoss(M, B,X,Y, loss):
+    """
+    A function which checks the loss function to make sure it's working properly. 
+    """
 def checkGradientCalculations():
     """
     Checks if the calculations  for the gradient are working, not apart of the 
@@ -240,10 +257,6 @@ def checkGradientCalculations():
     Xgrad = calculateGradient(X,Y,M,B,True, True)
     Ygrad = calculateGradient(X,Y,M,B,False,  True)
     return
-def chooseR(n,m, M,B):
-    r = 6
-    return r
-
 def stochasticGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs):
     """
     Another version of the gradient descent method, but this one instead of updating the entire matrix all at once, does it row by row, 
@@ -316,4 +329,23 @@ def gradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEpochs)
         Y0 = Y1
         X0 = X1
     return X1, Y1
+def calculateGradientRow(X,Y,M,B,row, isItX,check = False):
+    """
+    Like calculate gradient, but only does it for a specific row. This mixes better with stochastic grad descent method.
+    """
+    n = X.shape[0]
+    m = Y.shape[0]
+    if(isItX):
+        
+        term = M[row,:] - Y@X[row,:] * B[row, :]
+        #term = M[row, :] - cp.multiply(cp.matmul(Y, X[row, :]), B[row, :])
+        assert(term.shape == (m,))
+        #should be term@Y but with term as a row vector. 
+        return -2*Y.T@term
+    else:
+        term = M[:, row] - (X@Y[row, :])*B[:, row]
+        #term = M[:, row] - (cp.multiply(cp.matmul(X, Y[row, :]), B[:, row]))
+        assert(term.shape == (n,))
+        return -2* X.T@term
+
 runProgram()

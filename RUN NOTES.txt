@@ -94,3 +94,11 @@ w/ batch size 200, learning rate .00005, initially beetter, but fails to converg
 
 FOR r = 6 .00005 is TOO BIG. looks like need to icnrease learning rate when loss gets too low. WRONG. DONT INCREASE LR. 
 .000045 - TOO BIG
+.000042 TOO BIG. 
+
+CUPY SO MUCH FASTER by converting everything to cupy  with batch size of 50. We'll see with lower batch size, idk. 
+Train: .593, val: .609
+Even batch size of 10 is faster, with 1.3 seconds per batch. Slower than larger batches but still. 
+
+
+FOR r = 6, optimal learning rate is .00004. NOT MORE. Maybe less. 

@@ -144,16 +144,16 @@ def checkPredictions(predictions, Mfinal, predictData):
     """
     Check if hte way i did the previous prediction method works. 
     """
-    slowPredictions = np.zeros(shape = (predictions.shape))
+    slowPredictions = cp.zeros(shape = (predictions.shape))
     for point in range(predictData.shape[0]):
         i, j = predictData[point, :]
         assert(i>0)
         assert(j>0)
         slowPredictions[point] = Mfinal[i-1, j-1]
-    difference = np.abs(slowPredictions - predictions)
-    meanDiff = np.mean(difference)
-    stdDiff = np.std(difference)
+    difference = cp.abs(slowPredictions - predictions)
+    meanDiff = cp.mean(difference)
+    stdDiff = cp.std(difference)
     print("mean diff: {}, std diff: {}".format(meanDiff, stdDiff))
     threshold = .01
-    valid = np.all(difference<threshold)
+    valid = cp.all(difference<threshold)
     return valid
