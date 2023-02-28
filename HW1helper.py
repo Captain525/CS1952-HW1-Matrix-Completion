@@ -82,22 +82,22 @@ def initialize(n, m, r, Mtrain):
     Initialize the matrices we wish to learn. 
     Could do this in many different ways, this could also help with learning. 
     """
-    X = np.random.standard_normal((n,r))
-    Y = np.random.standard_normal((m,r))
+    X = np.random.normal(0,1, (n,r))
+    Y = np.random.normal(0, 1, (m,r))
     """
     assert(Mtrain.shape == (n,m))
     startSVD = time.time()
-    U, s, Vt = svd(Mtrain)
+    U, s, Vt = cp.linalg.svd(cp.array(Mtrain))
     endSVD = time.time()
     print("SVD TIME: ", endSVD - startSVD)
     X = U[:, 0:r]
     print(X.shape)
     assert(X.shape == (n,r))
-    sp = np.diag(s[0:r])
+    sp = cp.diag(s[0:r])
     print(sp.shape)
     X = X@sp
 
-    Y = np.transpose(Vt[0:r, :])
+    Y = cp.transpose(Vt[0:r, :])
     print(Y.shape)
     X = U@s
     """

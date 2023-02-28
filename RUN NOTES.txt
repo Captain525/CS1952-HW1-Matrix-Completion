@@ -102,3 +102,15 @@ Even batch size of 10 is faster, with 1.3 seconds per batch. Slower than larger 
 
 
 FOR r = 6, optimal learning rate is .00004. NOT MORE. Maybe less. 
+
+BS100>bs10 for speed and performance. 
+Another optimal one batch size 100 train: .59, val .6067, test .6089
+
+upped epochs to 700:
+train loss: .5689, val loss: .5887, test loss .5900
+
+An initialization with mean 1 didn't work well. 
+
+Trying r = 7: 300 epochs:
+train loss: .626 val loss: .6412, tet loss: .640
+r = 5 300 epochs:

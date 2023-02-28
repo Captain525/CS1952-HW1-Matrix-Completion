@@ -17,15 +17,18 @@ def runProgram():
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     r = chooseR(n, m, Mtrain, Btrain)
     X,Y = initialize(n,m, r, Mtrain)
-    numEpochs = 100
+    numEpochs = 1000
     learningRate = .00004
     batchSize = 100
     Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
     testLoss = loss(cp.array(Mtest), cp.array(Btest), Xfinal, Yfinal)
     print("test loss is: ", testLoss)
+    
     predictions, predictionsRounded = predict(Xfinal, Yfinal, cp.array(predictMatrix))
     print(predictions)
     print(predictionsRounded)
+    printToFile(predictions, "predictions.txt")
+    printToFile(predictionsRounded, "predictionsRounded.txt")
     return
 
 
@@ -157,7 +160,7 @@ def loss(M, B, X, Y):
     loss = cp.square(cp.linalg.norm(mat))/numEntries
     endLoss = time.time()
     
-    print("loss time: ", endLoss-startLoss)
+    #print("loss time: ", endLoss-startLoss)
     return loss
 
 def predict(X, Y, predictData):
@@ -177,6 +180,7 @@ def roundPredictions(predictions):
 
     """
     numPredictions = predictions.shape[0]
+    print("number of predictions to make: ", numPredictions)
     smallValue = .5
     bigValue = 5
     predTooSmall = predictions<smallValue
@@ -204,6 +208,14 @@ def roundPredictions(predictions):
     threshold = .01
     assert(cp.all(normal>=.5) and cp.all(normal<=5) and cp.all((normal%.5)<threshold))
     return normal
+def printToFile(predictions, url):
+   #predictionStrings = predictions.astype(str)
+   # print(predictionStrings)
+    with open(url, "w") as f:
+        for i in range(0,predictions.shape[0]):
+            f.write(str(predictions[i]) + "\n")
+    return
+
 def fiveReg(X,Y, isItX):
     """
     Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
