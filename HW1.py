@@ -20,6 +20,7 @@ def runProgram():
     # and predictMatrix(stuff we need to predict).
     n,m, ratingMatrix, predictMatrix = importDataFromFile(file_name)
     #split the data into training, validation, and testing, as well as randomize the order. 
+    q = predictMatrix.shape[0]
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     #pick an r value: I chose r=6
     r = chooseR(n, m, Mtrain, Btrain)
@@ -41,10 +42,11 @@ def runProgram():
     print("unaltered accuracy: ", accuracyUnaltered)
     print("Rounded accuracy: ", accuracyFringes)
     predictions, predictionsRounded = predict(Xfinal, Yfinal, cp.array(predictMatrix))
+    assert(predictions.shape[0] == q)
     #print(predictions)
     #print(predictionsRounded)
-    #printToFile(predictions, "predictions.txt")
-    #printToFile(predictionsRounded, "predictionsRounded.txt")
+    printToFile(predictions, "predictions.txt")
+    printToFile(predictionsRounded, "predictionsRounded.txt")
     return
 
 
@@ -183,7 +185,7 @@ def predict(X, Y, predictData):
     """
     Mfinal = X@Y.T
     predictions = Mfinal[predictData[:, 0]-1, predictData[:, 1]-1]
-    predictionsRounded = roundPredictions(predictions)
+    predictionsRounded = roundFringePredictions(predictions)
     return predictions, predictionsRounded
 
 def accuracy(M, M_hat, B):
