@@ -114,3 +114,8 @@ An initialization with mean 1 didn't work well.
 Trying r = 7: 300 epochs:
 train loss: .626 val loss: .6412, tet loss: .640
 r = 5 300 epochs:
+train loss: .63, val loss: .641, test loss : .6415
+
+r = 6 bs 100 lr.00004 epochs 1000, regularization coeff of 1:
+train: .554, val: .576, test: .5753
+

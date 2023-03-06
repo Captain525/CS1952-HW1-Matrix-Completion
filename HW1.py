@@ -10,25 +10,41 @@ want to hold out some data as training data.
 
 """
 def runProgram():
+    """
+    Main method to run the program, doing gradient descent by hand. 
+    """
     small = "mat_comp_small"
     big = "mat_comp"
     file_name = big
+    #Gets the data from the file and loads it into ratingMatrix(stuff with training values) 
+    # and predictMatrix(stuff we need to predict).
     n,m, ratingMatrix, predictMatrix = importDataFromFile(file_name)
+    #split the data into training, validation, and testing, as well as randomize the order. 
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
+    #pick an r value: I chose r=6
     r = chooseR(n, m, Mtrain, Btrain)
+    #initialize X and Y. I just did N(0,1). 
     X,Y = initialize(n,m, r, Mtrain)
     numEpochs = 1000
     learningRate = .00004
     batchSize = 100
+    #do gradient descent with the a batch being a number of rows. 
     Xfinal, Yfinal = batchGradientDescent(Mtrain, Mval, X, Y, Btrain, Bval, learningRate, numEpochs, batchSize)
+    #get the final loss of the result. 
     testLoss = loss(cp.array(Mtest), cp.array(Btest), Xfinal, Yfinal)
     print("test loss is: ", testLoss)
-    
+
+    Munaltered = Xfinal@Yfinal.T
+    MroundFringes = roundMatrixFringes(Munaltered)
+    accuracyUnaltered = accuracy(cp.array(Mtest), Munaltered, cp.array(Btest))
+    accuracyFringes = accuracy(cp.array(Mtest), MroundFringes, cp.array(Btest))
+    print("unaltered accuracy: ", accuracyUnaltered)
+    print("Rounded accuracy: ", accuracyFringes)
     predictions, predictionsRounded = predict(Xfinal, Yfinal, cp.array(predictMatrix))
-    print(predictions)
-    print(predictionsRounded)
-    printToFile(predictions, "predictions.txt")
-    printToFile(predictionsRounded, "predictionsRounded.txt")
+    #print(predictions)
+    #print(predictionsRounded)
+    #printToFile(predictions, "predictions.txt")
+    #printToFile(predictionsRounded, "predictionsRounded.txt")
     return
 
 
@@ -52,12 +68,14 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
     yBatches = int(m/batchSize)+ 1
     #one group has leftovers, other has leftovers+d. know leftovers<bs. 
     for i in range(0, numEpochs):
+        #shuffles the batch order randomly. 
         biggestBatchSize = max(xBatches, yBatches)
         perm = np.arange(0, biggestBatchSize)
         np.random.shuffle(perm)
         startLoop = time.time()
        
         for b in perm:
+            #gets a batch. 
             MbatchX = Mtrain[batchSize*b:batchSize*(b+1),:]
             BbatchX = Btrain[batchSize*b:batchSize*(b+1), :]
             MbatchY = Mtrain[:, batchSize*b:batchSize*(b+1)]
@@ -65,17 +83,12 @@ def batchGradientDescent(Mtrain, Mtest, X, Y, Btrain, Btest, learningRate, numEp
 
             if(b<xBatches):
                 Xbatch = X0[batchSize*b:batchSize*(b+1),:]
-                
                 xGrad = calculateGradient(Xbatch, Y0, MbatchX, BbatchX, True)
-                #regTerm = fiveReg(Xbatch, Y, True)
-                #xGrad = xGrad + regTerm
                 X1[batchSize*b:batchSize*(b+1), :] = Xbatch - learningRate*xGrad
                 X0 = X1
             if(b<yBatches):
                 Ybatch = Y0[batchSize*b:batchSize*(b+1), :]
                 yGrad = calculateGradient(X1, Ybatch, MbatchY, BbatchY, False)
-                #regTerm = fiveReg(X,Ybatch, False)
-                #yGrad = yGrad + regTerm
                 Y1[batchSize*b:batchSize*(b+1), :] = Ybatch - learningRate*yGrad
                 Y0 = Y1
         endLoop = time.time()
@@ -116,8 +129,10 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     """
     doReg = True
     val = X@Y.T
+    #coefficient for regularization
     l = 1
     term = (M-(val)*B)
+    #do regularization here. 
     if(doReg):
         I = (val>5).astype(int)
         J = (val<.5).astype(int)
@@ -130,6 +145,7 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
         grad = term.T @X
         assert(grad.shape == Y.shape)
     if(check):
+        #check if gradient computation was correct. 
         assert(checkGradient(X,Y,M,B, isItX, grad))
     return -2*grad
 def loss(M, B, X, Y):
@@ -151,16 +167,12 @@ def loss(M, B, X, Y):
     However, loop time doubled. 
     So, just cast this method to cp, which makes it run faster. 
     """
-    startLoss = time.time()
     #cast to cp to make this operation faster. 
     numEntries = cp.sum(B)
     mat = M-(X@Y.T)*B
     #this method is WAY faster. However, need to square it somehow. 
     #still faster with these extra things added. 
     loss = cp.square(cp.linalg.norm(mat))/numEntries
-    endLoss = time.time()
-    
-    #print("loss time: ", endLoss-startLoss)
     return loss
 
 def predict(X, Y, predictData):
@@ -172,8 +184,95 @@ def predict(X, Y, predictData):
     Mfinal = X@Y.T
     predictions = Mfinal[predictData[:, 0]-1, predictData[:, 1]-1]
     predictionsRounded = roundPredictions(predictions)
-    #assert(checkPredictions(predictions, Mfinal, predictData))
     return predictions, predictionsRounded
+
+def accuracy(M, M_hat, B):
+    """
+    Calculate the loss of a specific output matrix M_hat with M. 
+    Used to evaluate how well rounded answers will do. 
+    """
+    #ignore certain entries of M_hat (those that don't correspond to data we possess.  )
+    numEntries = cp.sum(B)
+    mat = M-(M_hat*B)
+
+    lossValue = cp.square(cp.linalg.norm(mat))/numEntries
+    return lossValue
+def roundMatrixFringes(M_hat):
+    smallValue = .5
+    bigValue = 5
+    predTooSmall = M_hat<smallValue
+    predTooBig = M_hat > bigValue
+    #elements neither too big nor too small. 
+    either = cp.logical_not(cp.logical_or(predTooBig, predTooSmall))
+    M_hat = either*M_hat + smallValue*predTooSmall + bigValue*predTooBig
+    return M_hat
+def roundFringePredictions(predictions):
+    numPredictions = predictions.shape[0]
+    print("number of predictions to make: ", numPredictions)
+    smallValue = .5
+    bigValue = 5
+    predTooSmall = predictions<smallValue
+    predTooBig = predictions>bigValue
+    print("num too small: ", cp.sum(predTooSmall)/numPredictions)
+    print("num too big: ", cp.sum(predTooBig)/numPredictions)
+
+    #logical and of two arrays should be 0 bc nothing in common. 
+    either = cp.logical_not(cp.logical_or(predTooBig, predTooSmall))
+    #multiply elements of predictions which are invalid by 0, then add small value or big values to those elements to get the new value. 
+    predictions = either*predictions + predTooSmall*smallValue + predTooBig*bigValue
+    return predictions
+
+def printToFile(predictions, url):
+   #predictionStrings = predictions.astype(str)
+   # print(predictionStrings)
+    with open(url, "w") as f:
+        for i in range(0,predictions.shape[0]):
+            f.write(str(predictions[i]) + "\n")
+    return
+
+
+def chooseR(n,m, M,B):
+    r = 6
+    return r
+#UNUSED METHODS
+def roundMatrix(M_hat):
+    """
+    Rounds the values in M_hat to the nearest multiple of .5. Also rounds up to .5 and down to 5. 
+    """
+    smallValue = .5
+    bigValue = 5
+    predTooSmall = M_hat<smallValue
+    predTooBig = M_hat > bigValue
+    #elements neither too big nor too small. 
+    either = cp.logical_not(cp.logical_or(predTooBig, predTooSmall))
+    M_hat = either*M_hat + smallValue*predTooSmall + bigValue*predTooBig
+    del predTooSmall
+    del predTooBig
+    del either
+
+    #rounding part. 
+    M_hat = 2*M_hat
+    
+    floor = cp.floor(M_hat)
+    ceiling = cp.ceil(M_hat)
+
+    distBelow = M_hat - floor
+    distAbove = ceiling-M_hat
+     
+    del M_hat
+    #elements which are closer to lower than higher should be rounded down. 
+    roundDown = distBelow<=distAbove
+    del distAbove
+    del distBelow
+    combined = floor*roundDown + ceiling*cp.logical_not(roundDown)
+    #assert(cp.all(cp.abs(combined - M_hat) <=distAbove))
+    #assert(cp.all(cp.abs(combined - M_hat) <=distBelow))
+    del roundDown
+    M_hat = combined/2
+    del combined
+    threshold = .01
+    #assert(cp.all(M_hat>=.5) and cp.all(M_hat<=5) and cp.all((M_hat%.5)<threshold))
+    return M_hat
 def roundPredictions(predictions):
     """
     Find the closest multiple of .5 to the value, and make it that value. 
@@ -208,14 +307,6 @@ def roundPredictions(predictions):
     threshold = .01
     assert(cp.all(normal>=.5) and cp.all(normal<=5) and cp.all((normal%.5)<threshold))
     return normal
-def printToFile(predictions, url):
-   #predictionStrings = predictions.astype(str)
-   # print(predictionStrings)
-    with open(url, "w") as f:
-        for i in range(0,predictions.shape[0]):
-            f.write(str(predictions[i]) + "\n")
-    return
-
 def fiveReg(X,Y, isItX):
     """
     Regularization to check that the values of XY^T are less than 5 and greater than 0.  Gradient value. 
@@ -248,10 +339,6 @@ def fiveReg(X,Y, isItX):
     #print("time final: ", timeEnd - timeStart)
     return 2*l*term.get()
 
-def chooseR(n,m, M,B):
-    r = 6
-    return r
-#UNUSED METHODS
 def checkLoss(M, B,X,Y, loss):
     """
     A function which checks the loss function to make sure it's working properly. 
