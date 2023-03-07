@@ -1,4 +1,8 @@
 ASSIGNMENT: Matrix Completion
+NOTE: ANSWERS IN mat_comp_ans.txt
+Predictions.txt and predictionsRounded also contain GOOD answers, but not the best/chosen ones. 
+mat_comp_ans_unrefined.txt contains answers in mat_comp_ans rounded to the proper interval. 
+
 
 We're given a dataset in mat_comp (or mat_comp_small) of pairs of users, movies and ratings from .5 to 5 (jumping by .5). 
 We want to be able to predict what a user will rate a given movie on an example we haven't seen. 
