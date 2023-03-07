@@ -16,11 +16,19 @@ def runProgram():
     small = "mat_comp_small"
     big = "mat_comp"
     file_name = big
+    
     #Gets the data from the file and loads it into ratingMatrix(stuff with training values) 
     # and predictMatrix(stuff we need to predict).
     n,m, ratingMatrix, predictMatrix = importDataFromFile(file_name)
     #split the data into training, validation, and testing, as well as randomize the order. 
     q = predictMatrix.shape[0]
+    checkPredictionsMatchWithActualOrdering(q)
+    realAnswers = cp.array(loadPredictionsFromFile("mat_comp_ans.txt", q))
+    realAnswersUnrefined = cp.array(loadPredictionsFromFile("mat_comp_ans_unrefined.txt", q))
+
+    #roundedRealAnswers = roundFringePredictions(realAnswers)
+    checkPredictionsDistance(realAnswersUnrefined, realAnswers)
+    #printToFile(roundedRealAnswers, "mat_comp_ans_rounded.txt")
     (Mtrain, Btrain), (Mval,Bval), (Mtest,Btest) = readyData(n,m,ratingMatrix)
     #pick an r value: I chose r=6
     r = chooseR(n, m, Mtrain, Btrain)
@@ -43,8 +51,7 @@ def runProgram():
     print("Rounded accuracy: ", accuracyFringes)
     predictions, predictionsRounded = predict(Xfinal, Yfinal, cp.array(predictMatrix))
     assert(predictions.shape[0] == q)
-    #print(predictions)
-    #print(predictionsRounded)
+
     printToFile(predictions, "predictions.txt")
     printToFile(predictionsRounded, "predictionsRounded.txt")
     return
@@ -136,8 +143,13 @@ def calculateGradient(X,Y, M, B, isItX, check=False):
     term = (M-(val)*B)
     #do regularization here. 
     if(doReg):
+        #If greater than 5
         I = (val>5).astype(int)
+        #if less than .5
         J = (val<.5).astype(int)
+        #This term basically gets the distance from the boundary as the gradient value, 
+        # so if it's farther away it pushes harder. It's actually L2 loss, but doesn't show because we  only look at the gradient. 
+        #Note that this term isn't included in our printed loss because I wanted that to reflect the grader's loss. 
         valTerm = val*(I+J)-(5*I + .5*J)
         term = term -l*valTerm
     if(isItX):
@@ -154,7 +166,7 @@ def loss(M, B, X, Y):
     """
     The base loss function is: 
     f(X,Y) = sum_{i,j in omega}(Mij - (XY^T)ij)^2
-    We can rwerite this in matrix form however, using B. 
+    We can rewrite this in matrix form however, using B. 
     Note if i,j isn't in omega, by definition of M, Mij = 0. 
     By definition of B, Bij = 0. So, if we plug in XY^T*B, then Mij - (XY^T*B) = 0
     for those which shouldn't be counted which is what we want. 
@@ -200,6 +212,9 @@ def accuracy(M, M_hat, B):
     lossValue = cp.square(cp.linalg.norm(mat))/numEntries
     return lossValue
 def roundMatrixFringes(M_hat):
+    """
+    Rounds value of the matrix to be within the valid range. 
+    """
     smallValue = .5
     bigValue = 5
     predTooSmall = M_hat<smallValue
@@ -209,6 +224,9 @@ def roundMatrixFringes(M_hat):
     M_hat = either*M_hat + smallValue*predTooSmall + bigValue*predTooBig
     return M_hat
 def roundFringePredictions(predictions):
+    """
+    Rounds list of predictions to be within the valid range. 
+    """
     numPredictions = predictions.shape[0]
     print("number of predictions to make: ", numPredictions)
     smallValue = .5
@@ -232,11 +250,10 @@ def printToFile(predictions, url):
             f.write(str(predictions[i]) + "\n")
     return
 
-
 def chooseR(n,m, M,B):
     r = 6
     return r
-#UNUSED METHODS
+#UNUSED METHODS BELOW HERE. THEY WERE USED PREVIOUSLY BUT BECAME OBSOLETE. 
 def roundMatrix(M_hat):
     """
     Rounds the values in M_hat to the nearest multiple of .5. Also rounds up to .5 and down to 5. 

@@ -9,3 +9,22 @@ a series of entries Mij of the matrix,specifically k entries. We wish to use tho
 To do this, we assume that M = X@Y^T for some X size nxr, Y size mxr, where r is the rank of the matrix M(unknown). 
 We want to minimize the loss function 
 f(X,Y) = sum_{i,j in omega}(Mij - XY^Tij)^2. 
+
+To do this, we use batchGradientDescent, where each batch is a given number of rows. 
+We also introduce the matrices M and B, where Mij = value of prediction  if (i,j) in omega, and Mij = 0 otherwise. 
+B is a boolean array with a 1 if (i,j) in omega and 0 if it isn't. This lets us do all our computations in matrix form. 
+
+Split data into train, val, test(.8/.1/.1). Randomly initialize X and Y with normal(0,1)
+
+Final hyperparameters: 1000 epochs, learningRate = .00004, batchSize = 100, r = 6. 
+
+For a loss function used f(X,Y) + lambda*fiveReg, where the regularization term is L2 distance from .5 or 5 IF it's out of bounds. 
+So, if a value of XY^T is below .5, the gradient contribution is to push it towards .5, and same for 5. This way, it helps encourage results which
+keep the product matrix M within the valid rating bounds. Used a coefficient of 1 for this term as well. Note that we don't include this term in 
+the actual computation of the loss, just the gradient. 
+
+mat_comp_ans contains the values in mat_comp_ans_unrefined but rounded to be in the valid interval. If that happens to get a really bad answer by accident, look at mat_comp_ans_unrefined. It should work fine though. 
+
+
+
+

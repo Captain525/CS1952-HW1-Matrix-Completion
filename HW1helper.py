@@ -2,6 +2,36 @@ import numpy as np
 import cupy as cp
 import time as time
 from numpy.linalg import svd
+
+def loadPredictionsFromFile(fileName, q):
+    """
+    Load predictions from a file. 
+    """
+    with open(fileName, 'r') as f:
+        #this first line contains n, m, and k. 
+        fileLines = f.readlines()
+        predictionList = [float(line.split()[0]) for line in fileLines]
+        predictionArray = np.array(predictionList, np.float32)
+        assert(predictionArray.shape == (q, ))
+        return predictionArray
+def checkPredictionsDistance(predictionArray1, predictionArray2):
+    """
+    Check how far given predictions are from eachother. 
+    """
+    dist = cp.square(cp.linalg.norm(predictionArray1-predictionArray2))/predictionArray1.shape[0]
+    print("dist between two is: ", dist)
+    return dist
+
+def checkPredictionsMatchWithActualOrdering(q):
+    """
+    Check my new predictions match with the old ones, are equally good. 
+    """
+    submittedPredictions = loadPredictionsFromFile("mat_comp_ans.txt", q)
+    roundedPredictions= loadPredictionsFromFile("predictionsRounded.txt", q)
+    dist = checkPredictionsDistance(submittedPredictions, roundedPredictions)
+    threshold = .2
+    assert(dist<threshold)
+    return
 def getBooleanMatrixM(dataMatrix, n, m):
     """
     Goal: Get a boolean matrix of size nxm which represents which entries we have data of 
@@ -53,10 +83,15 @@ def importDataFromFile(fileName):
         predictionList = [[int(line.split()[i]) for i in range(2)]for line in predictLines]
         predictMatrix = np.array(predictionList, dtype = int)
         assert(predictMatrix.shape == (q, 2))
+        assert(predictMatrix[0, 0] == int(predictLines[0].split()[0]))
+        assert(predictMatrix[-1, 1] == int(predictLines[-1].split()[1]))
         #can get k and q from sizes of rating and predict matrix. 
         return (n,m, ratingMatrix, predictMatrix)
 
 def readyData(n,m , ratingMatrix):
+    """
+    Prepare data for training by splitting it up into training, validation, and test. 
+    """
     k = ratingMatrix.shape[0]
     #FORGOT THIS BEFORE. MUCH BETTER WITH SHUFFLE, so that each group are sharing each part of the matrix. 
     np.random.shuffle(ratingMatrix)
@@ -74,6 +109,7 @@ def readyData(n,m , ratingMatrix):
     booleanEnd = time.time()
     booleanTime = booleanEnd-booleanStart
     print("booleanTime: ", booleanTime)
+    #gets the boolean matrices for the validation and test here. 
     Mval, Bval = getBooleanMatrixM(validationRating, n, m)
     Mtest,Btest = getBooleanMatrixM(testRating, n, m)
     return [(Mtrain, Btrain), (Mval, Bval), (Mtest, Btest)]
@@ -81,6 +117,8 @@ def initialize(n, m, r, Mtrain):
     """
     Initialize the matrices we wish to learn. 
     Could do this in many different ways, this could also help with learning. 
+
+    Just does normal 0,1 for now. 
     """
     X = np.random.normal(0,1, (n,r))
     Y = np.random.normal(0, 1, (m,r))
